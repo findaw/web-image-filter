@@ -1,4 +1,16 @@
+# working dir
+.vscode
+
+# extension dir
 data
+ref
+model
+temp.*
+sample.*
+
+# python dir
 test.py
 __pycache__
-.vscode
+
+
+
