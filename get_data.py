@@ -4,7 +4,7 @@ import numpy as np
 
 
 def get_train_data() -> tuple : 
-    TARGET = ['cockroach', 'spider', 'etc']
+    TARGET = ['cockroach', 'etc']
     LABEL = {TARGET[0] : 0, TARGET[1] : 1, TARGET[2]: 2}
     path = '\data\\train\\'
     data_input = []
