@@ -1,0 +1,23 @@
+{
+    "name" : "Web Image Filter App",
+    "version" : "0.0.1",
+    "manifest_version" : 2,
+    "description" : "web image filter project",
+    "background" : {
+        "service_worker" : "background.js"
+    },
+    "content_scripts":[{
+        "matches" : ["http://*/*","https://*/*"],
+        "js" : ["lib/blurify.min.js","src/getImageSrc.js", "src/imageToArray.js"]
+    }],
+    
+    "permissions" : ["storage", "activeTab"],
+    "browser_action" :{
+        "default_icon" : "res/favicon.png",
+        "default_popup" : "src/popup.html"
+        },
+    "icons" :{
+        "64" : "res/favicon.png"
+    },
+  "options_page": "options.html"
+}
