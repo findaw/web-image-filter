@@ -1,6 +1,18 @@
+# working dir
+.vscode
+
+# extension dir
 data
+ref
+temp.*
+sample.*
+
+# python dir
 test.py
 __pycache__
 .vscode
 dataset
 model
+
+
+
