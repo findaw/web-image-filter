@@ -1,5 +1,7 @@
 # working dir
 .vscode
+.ipynb_checkpoints
+
 
 # extension dir
 data
