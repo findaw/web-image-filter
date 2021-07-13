@@ -8,7 +8,7 @@
     },
     "content_scripts":[{
         "matches" : ["http://*/*","https://*/*"],
-        "js" : ["lib/blurify.min.js","src/getImageSrc.js", "src/imageToArray.js"]
+        "js" : ["lib/tf.min.js", "lib/teachablemachine-image.min.js","lib/blurify.min.js", "src/model.js", "src/getImageSrc.js", "src/imgFilter.js"]
     }],
     
     "permissions" : ["storage", "activeTab"],
