@@ -11,7 +11,15 @@
         "js" : ["lib/tf.min.js", "lib/teachablemachine-image.min.js","lib/blurify.min.js", "src/model.js", "src/getImageSrc.js", "src/imgFilter.js"]
     }],
     
-    "permissions" : ["storage", "activeTab"],
+    "permissions" : [
+        "storage", 
+        "activeTab",
+        "downloads",
+        "webRequest",
+        "webRequestBlocking",
+        "http://*/*",
+        "https://*/*"
+    ],
     "browser_action" :{
         "default_icon" : "res/favicon.png",
         "default_popup" : "src/popup.html"

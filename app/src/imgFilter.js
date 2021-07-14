@@ -8,38 +8,61 @@ function sleep(ms){
 //sleep(2000);
 
 const findaw = {
-    flag : {'REPLACE' : 0},
+    flag : {'REPLACE' : 0, 'RETRY':1},
     nodes : [...document.images],
     imgArr : new Array(),
     model : new ImageClassifier(),
     filter : async function  (){
         console.log(this.nodes);
+        this.imgArr = new Array()
         const [body] = document.getElementsByTagName('body');
         for(let i=0; i < this.nodes.length ; i++){
-            try{
-                this.nodes[i].addEventListener('load',e=>{
-                    if(e.target.getAttribute('data-flag') == this.flag.REPLACE) return;
-                    this.getImgObjByElm(e.target).addEventListener('load', e=>{
-                        if(e.target.getAttribute('data-flag') == this.flag.REPLACE || this.nodes[i]) return;
-                        
+            this.nodes[i].addEventListener('load', e=>{
+                if(e.target.getAttribute('data-flag') == this.flag.REPLACE || this.nodes[i] == null || this.nodes[i] == undefined) return;
+                let image = this.getImgObjByElm(e.target);
+                image.addEventListener('load', async e=>{
+
+                    if(e.target.getAttribute('data-flag') || e.target.getAttribute('data-flag') == this.flag.REPLACE || this.nodes[i] == null || this.nodes[i] == undefined) return;
+                    try{
                         // convert logic here
-                        e.target.src = this.filterCanvas(...this.imgToCanvas(e.target));
+                        const [c, ctx] = this.imgToCanvas(e.target);
+                        // const copy  = JSON.parse(JSON.stringify({c, ctx}));
+                        // const copy_c = copy.c,  copy_ctx =  copy.ctx;
+                        // e.target.src = this.filterCanvas(c, ctx);
                         e.target.setAttribute('data-flag', this.flag.REPLACE);
-                        this.imgArr.push(e.target);
                         this.nodes[i].setAttribute('data-flag', this.flag.REPLACE);
-                        this.nodes[i].src = e.target.src;
-                        this.nodes[i].parentNode.replaceChild(e.target, this.nodes[i]);
+                        this.nodes[i].setAttribute('src', e.target.getAttribute('src'));
                         
-                        const prediction = this.model.predict(e.target);
+                        console.log(e.target);
+                        console.log(this.imgArr[i]);
+                        this.imgArr[i].setAttribute('data-flag', this.flag.REPLACE);
+                        this.nodes[i].parentNode.replaceChild(e.target, this.nodes[i]);
+                        this.imgArr.push(e.target);
+
+                        const prediction = await this.model.predict(c);
+                        console.log('filter');
+                        console.log(prediction);
                         const textContent = this.textContentFromPrediction(prediction);
-                        this.addTextElementToImageNode(e.target, textContent);
+                        console.log(e.target);
+                        console.log(this.imgArr[i]);
+                        this.addTextElementToImageNode(this.imgArr[i], textContent);
+
+                        this.nodes[i].parentNode.replaceChild(this.imgArr[i], e.target);
+                        
                         
                         // blurImage(this.nodes[i]);
-                })});
-
-            }catch(err){
-                console.error(err);
-            }       
+                    }catch(err){
+                        console.log(err);
+                        // e.target.setAttribute('data-flag', this.flag.RETRY);
+                        // this.nodes[i].setAttribute('data-flag', this.flag.RETRY);
+                        // this.imgArr[i].setAttribute('data-flag',this.flag.RETRY);
+                        sleep(100);
+                    }
+                        
+                });
+                image.setAttribute('src', e.target.getAttribute('src'));
+            });
+       
         }
     },
     getImgObjByElm: function (element){
@@ -49,7 +72,6 @@ const findaw = {
         image.width = element.width;
         image.height = element.height;
         image.crossOrigin = "Anonymous";
-        image.src = element.src;
         return image;
     },
     imgToCanvas: function(elmObj){
@@ -76,17 +98,13 @@ const findaw = {
     // Source : https://github.com/tensorflow/tfjs-examples/blob/0f77c36cd849ee1acfbe3a743f77bda1bc82d134/chrome-extension/src/content.js#L32
     textContentFromPrediction : function (predictions) {
         predictions.sort((a,b)=>{return b.probability - a.probability});
-
-        for (let i = 0; i < this.model.MAX_PREDICTION; i++) {
-            const classPrediction =
-                predictions[i].className + ": " + predictions[i].probability.toFixed(2);
-        }
+       
         if (!predictions || predictions.length < 1) {
           return `No prediction 🙁`;
         }
         // Confident.
         if (predictions[0].probability >= this.model.HIGH_CONFIDENCE_THRESHOLD) {
-          return `😄 ${predictions[0].className}!`;
+          return `😄 ${predictions[0].className}! \n (${predictions[0].probability})`;
         }
         // Not Confident.
         if (predictions[0].probability >= this.model.LOW_CONFIDENCE_THRESHOLD &&
@@ -100,8 +118,12 @@ const findaw = {
               predictions[1].className}????`;
         }
     },
+    // Source : https://github.com/tensorflow/tfjs-examples/blob/0f77c36cd849ee1acfbe3a743f77bda1bc82d134/chrome-extension/src/content.js#L32
     addTextElementToImageNode : function(imgNode, textContent) {
-        const originalParent = imgNode.parentElement;
+        console.log('addTextElementToImageNode');
+        console.log(imgNode);
+        const originalParent = imgNode.parentNode;
+        console.log(imgNode.parentNode);
         const container = document.createElement('div');
         container.style.position = 'relative';
         container.style.textAlign = 'center';
@@ -112,14 +134,14 @@ const findaw = {
         text.style.top = '50%';
         text.style.left = '50%';
         text.style.transform = 'translate(-50%, -50%)';
-        text.style.fontSize = '34px';
+        text.style.fontSize = `${parseInt(imgNode.width*0.13)}px`;
         text.style.fontFamily = 'Google Sans,sans-serif';
-        text.style.fontWeight = '700';
+        text.style.fontWeight = '800';
         text.style.color = 'white';
         text.style.lineHeight = '1em';
         text.style['-webkit-text-fill-color'] = 'white';
         text.style['-webkit-text-stroke-width'] = '1px';
-        text.style['-webkit-text-stroke-color'] = 'black';
+        text.style['-webkit-text-stroke-color'] = 'gray';
         // Add the containerNode as a peer to the image, right next to the image.
         originalParent.insertBefore(container, imgNode);
         // Move the imageNode to inside the containerNode;
