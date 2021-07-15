@@ -8,61 +8,77 @@ function sleep(ms){
 //sleep(2000);
 
 const findaw = {
-    flag : {'REPLACE' : 0, 'RETRY':1},
+    flag : { FILTERED : '1', RETRY: '2', SUCCESS: '9' },
+    attr : { FLAG : 'data-flag', BLURIFY : 'data-src'},
     nodes : [...document.images],
     imgArr : new Array(),
     model : new ImageClassifier(),
-    filter : async function  (){
+    addLListener : async function  (){
+        if (this.model.MODEL === null) await this.model.load();
         console.log(this.nodes);
-        this.imgArr = new Array()
-        const [body] = document.getElementsByTagName('body');
+        this.imgArr = new Array();
+
+        async function listener(node){
+            if(this.model.MODEL === null) await this.model.load();
+            let image = this.getImgObjByElm(node);
+            image.addEventListener('load', async e=>this.filter(e, node));
+            // node.setAttribute('crossOrigin', 'Anonymous');
+            if(node.getAttribute('src')){
+                try{
+                    node.setAttribute(this.attr.BLURIFY, node.getAttribute('src'));
+                    image.setAttribute(this.attr.BLURIFY, node.getAttribute('src'));
+                    image.src = node.src;
+                }catch(err){
+                    console.error('CORS ERROR');
+                }
+            }
+        }
         for(let i=0; i < this.nodes.length ; i++){
-            this.nodes[i].addEventListener('load', e=>{
-                if(e.target.getAttribute('data-flag') == this.flag.REPLACE || this.nodes[i] == null || this.nodes[i] == undefined) return;
-                let image = this.getImgObjByElm(e.target);
-                image.addEventListener('load', async e=>{
-
-                    if(e.target.getAttribute('data-flag') || e.target.getAttribute('data-flag') == this.flag.REPLACE || this.nodes[i] == null || this.nodes[i] == undefined) return;
-                    try{
-                        // convert logic here
-                        const [c, ctx] = this.imgToCanvas(e.target);
-                        // const copy  = JSON.parse(JSON.stringify({c, ctx}));
-                        // const copy_c = copy.c,  copy_ctx =  copy.ctx;
-                        // e.target.src = this.filterCanvas(c, ctx);
-                        e.target.setAttribute('data-flag', this.flag.REPLACE);
-                        this.nodes[i].setAttribute('data-flag', this.flag.REPLACE);
-                        this.nodes[i].setAttribute('src', e.target.getAttribute('src'));
-                        
-                        console.log(e.target);
-                        console.log(this.imgArr[i]);
-                        this.imgArr[i].setAttribute('data-flag', this.flag.REPLACE);
-                        this.nodes[i].parentNode.replaceChild(e.target, this.nodes[i]);
-                        this.imgArr.push(e.target);
-
-                        const prediction = await this.model.predict(c);
-                        console.log('filter');
-                        console.log(prediction);
-                        const textContent = this.textContentFromPrediction(prediction);
-                        console.log(e.target);
-                        console.log(this.imgArr[i]);
-                        this.addTextElementToImageNode(this.imgArr[i], textContent);
-
-                        this.nodes[i].parentNode.replaceChild(this.imgArr[i], e.target);
-                        
-                        
-                        // blurImage(this.nodes[i]);
-                    }catch(err){
-                        console.log(err);
-                        // e.target.setAttribute('data-flag', this.flag.RETRY);
-                        // this.nodes[i].setAttribute('data-flag', this.flag.RETRY);
-                        // this.imgArr[i].setAttribute('data-flag',this.flag.RETRY);
-                        sleep(100);
-                    }
-                        
+            if(this.nodes[i].complete){
+                listener.bind(findaw)(this.nodes[i]);
+            }else if(this.nodes[i].src){
+                this.nodes[i].addEventListener('load', async e=>{
+                    listener.bind(findaw)(this.nodes[i]);
                 });
-                image.setAttribute('src', e.target.getAttribute('src'));
-            });
-       
+            }
+        }
+    },
+    filter : async function (e, node){   // e.target : new Image Object
+        console.log('filter');
+        if(!node) return findaw.refresh.bind(findaw);
+        if(node.getAttribute(this.attr.FLAG) === this.flag.FILTERED ) return;
+        if(this.model.MODEL === null) await this.model.load();
+
+        try{
+            // convert logic here
+            const imgObj = e.target;
+            const [c, ctx] = this.imgToCanvas(e.target);
+            ctx.getImageData(0, 0, c.width, c.height);
+
+            const prediction = await this.model.predict(c);
+            let sortPred = Object.assign([], prediction);
+            sortPred.sort((a,b)=>{return b.probability - a.probability});
+            
+            const textContent = this.contentFromPrediction(sortPred);
+            
+            if(this.addTextElementToImageNode(node, textContent) === this.flag.SUCCESS){
+                console.log('DONE');
+                // e.target.setAttribute('data-flag', this.flag.FILTERED);
+                node.setAttribute(this.attr.FLAG, this.flag.FILTERED);
+                // this.imgArr[i].setAttribute('data-flag', this.flag.FILTERED);
+                // this.nodes[i].setAttribute('src', e.target.getAttribute('src'));
+                if (!imgObj.src.includes('base64')) {
+                    imgObj.setAttribute('src', c.toDataURL());
+                    node.parentNode.replaceChild(imgObj, node);
+                    this.imgArr.push(e.target);
+                }else{
+                    this.imgArr.push(node);
+                }
+                if(this.model.FILTER_TARGET.includes(sortPred[0].className)) blurImage(this.imgArr[this.imgArr.length-1]);  //fix
+            }
+        }catch(err){
+            console.log(err);
+            sleep(100);
         }
     },
     getImgObjByElm: function (element){
@@ -77,7 +93,6 @@ const findaw = {
     imgToCanvas: function(elmObj){
         let c= document.createElement('canvas');
         let ctx = c.getContext('2d');
-        elmObj.setAttribute('data-src', elmObj.src);
         c.width = elmObj.width;
         c.height = elmObj.height;
         ctx.drawImage(elmObj, 0, 0, c.width, c.height);
@@ -96,15 +111,13 @@ const findaw = {
         return c.toDataURL();
     },
     // Source : https://github.com/tensorflow/tfjs-examples/blob/0f77c36cd849ee1acfbe3a743f77bda1bc82d134/chrome-extension/src/content.js#L32
-    textContentFromPrediction : function (predictions) {
-        predictions.sort((a,b)=>{return b.probability - a.probability});
-       
+    contentFromPrediction : function (predictions) {
         if (!predictions || predictions.length < 1) {
           return `No prediction 🙁`;
         }
         // Confident.
         if (predictions[0].probability >= this.model.HIGH_CONFIDENCE_THRESHOLD) {
-          return `😄 ${predictions[0].className}! \n (${predictions[0].probability})`;
+          return `😄 ${predictions[0].className}! \n (${predictions[0].probability.toFixed(2)})`;
         }
         // Not Confident.
         if (predictions[0].probability >= this.model.LOW_CONFIDENCE_THRESHOLD &&
@@ -120,10 +133,7 @@ const findaw = {
     },
     // Source : https://github.com/tensorflow/tfjs-examples/blob/0f77c36cd849ee1acfbe3a743f77bda1bc82d134/chrome-extension/src/content.js#L32
     addTextElementToImageNode : function(imgNode, textContent) {
-        console.log('addTextElementToImageNode');
-        console.log(imgNode);
         const originalParent = imgNode.parentNode;
-        console.log(imgNode.parentNode);
         const container = document.createElement('div');
         container.style.position = 'relative';
         container.style.textAlign = 'center';
@@ -134,7 +144,7 @@ const findaw = {
         text.style.top = '50%';
         text.style.left = '50%';
         text.style.transform = 'translate(-50%, -50%)';
-        text.style.fontSize = `${parseInt(imgNode.width*0.13)}px`;
+        text.style.fontSize = `${(imgNode.width*0.08).toFixed(2)}px`;
         text.style.fontFamily = 'Google Sans,sans-serif';
         text.style.fontWeight = '800';
         text.style.color = 'white';
@@ -149,12 +159,15 @@ const findaw = {
         // Add the text node right after the image node;
         container.appendChild(text);
         text.textContent = textContent;
+
+        return this.flag.SUCCESS;
     },
-    refresh : function(){
+    refresh : async function(){
         console.log('refresh');
+        if (this.model === null) this.model = new ImageClassifier();
+        await this.model.load();
         this.nodes = [...document.images];
-        console.log(this.nodes);
-        this.filter.bind(this)();
+        this.addLListener.bind(this)();
 
     },
 }

@@ -14,23 +14,28 @@ class ImageClassifier{
         this.FIVE_SECONDS_IN_MS = 5000;
         this.HIGH_CONFIDENCE_THRESHOLD = 0.5;
         this.LOW_CONFIDENCE_THRESHOLD = 0.1;
+        this.FILTER_TARGET = ["cockroach"];   // to fix
         this.modelURL = null;
         this.metadataURL = null;
-        this.model = null;
+        this.MODEL = null;
         this.metadata = null;
-        this.init();
+
     }
-    async init(){
+    async load(){
         this.modelURL = this.MODEL_URL + "model.json";
         this.metadataURL = this.MODEL_URL + "metadata.json";
-        this.model = await tmImage.load(this.modelURL, this.metadataURL);
-        console.log('init');
-        console.log(this.model);
-        this.MAX_PREDICTION = this.model.getTotalClasses();
 
+        // techarble machine model load
+        this.MODEL = await tmImage.load(this.modelURL, this.metadataURL);
+        this.MAX_PREDICTION = this.MODEL.getTotalClasses();
+        console.log('Load Model');
+        console.log(this.MODEL);
+
+        // tensorflow js model load
         // this.model = await tf.loadLayersModel(this.modelURL);
         // this.metadata = await JSON.parse(this.metadataURL);
         // this.MAX_PREDICTION = this.metadata.labels.length;
+        return 1;
     }
     // async getModelData(modelURL=this.modelURL){
     //     console.log(modelURL);
@@ -67,7 +72,7 @@ class ImageClassifier{
     // }
     async analyze(nodes, transfer){
         // if(!tabId){ console.error('No Tab.'); return; }
-        if(this.model != undefined){ console.log('model not loaded');  return; }
+        if(this.MODEL != undefined){ console.log('model not loaded');  return; }
         console.log('analyze()');
         for(const imgNode of nodes){
             // predict = this.predict(imgNode);
@@ -78,7 +83,8 @@ class ImageClassifier{
         return new Promise(async (resolve, reject)=>{
             console.log('predict');
             console.log(this);
-            if(!this.model) {
+            console.log(this.MODEL);
+            if(!this.MODEL) {
                 console.log('model not loaded');
                 reject('model not loaded');
             }
@@ -87,7 +93,7 @@ class ImageClassifier{
             // const normalized = img.div(tf.scalar(256.0));
             // const batched = normalized.reshape([3, input.width, input.height]);
 
-            const prediction = await this.model.predict(input);
+            const prediction = await this.MODEL.predict(input);
             console.log(prediction);
 
             resolve(prediction);
